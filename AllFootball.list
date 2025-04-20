@@ -9,6 +9,15 @@ DOMAIN-SUFFIX,adjust.world,REJECT
 DOMAIN-SUFFIX,adjust.net.in,REJECT
 DOMAIN-SUFFIX,googleapis.com,REJECT
 DOMAIN-SUFFIX,doubleclick.net,REJECT
+DOMAIN-SUFFIX,inspmobi.com,REJECT
+DOMAIN-SUFFIX,ubixioe.com,REJECT
+DOMAIN-SUFFIX,volcvod.com,REJECT
+DOMAIN-SUFFIX,halomobi.com,REJECT
+DOMAIN-SUFFIX,toutiao-b.com,REJECT
+DOMAIN-SUFFIX,toponad.com,REJECT
+DOMAIN-SUFFIX,motowoo.com,REJECT
+DOMAIN-SUFFIX,volces.com,REJECT
+DOMAIN-SUFFIX,easytomessage.com,REJECT
 
 # 其他服务域名（建议走代理）
 DOMAIN,ip-api.com,Proxy
