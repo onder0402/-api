@@ -95,4 +95,5 @@ PinDuoDuo_homepage = type=http-response, pattern=^https://api\.pinduoduo\.com/ap
 [MITM]
 hostname = %APPEND% api.pinduoduo.com, api.yangkeduo.com, m.pinduoduo.net
 h2 = true
-auto-quic-block = true
+# 注意：auto-quic-block 不能写在模块里（Surge 手册：模块的 [MITM] 只能改 hostname、client-source-address、
+# skip-server-cert-verify、tcp-connection、h2），它默认值就是 true，不用加；写了反而可能导致整个模块被忽略。
