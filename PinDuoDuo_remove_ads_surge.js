@@ -12,6 +12,8 @@
 const url = $request.url || "";
 let body = $response.body || "";
 try { console.log("[PDD] hit url=" + url + " body_len=" + body.length); } catch (e) {}
+// 临时诊断：脚本只要跑到就弹一条通知，跑不到就说明 pattern/MITM/脚本下载那层有问题，删掉这行后才算正式版
+try { if (/\/api\/alexa\/homepage\/hub/.test(url)) $notification.post("PDD测试", "首页脚本跑到了", "body_len=" + body.length); } catch (e) {}
 
 function delPath(obj, path) {
   if (!obj || typeof obj !== "object") return;
