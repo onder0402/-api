@@ -5,72 +5,94 @@
 #!icon=https://raw.githubusercontent.com/luestr/IconResource/main/App_icon/120px/PinDuoDuo.png
 #!category=去广告
 
-# 写法说明：不用 JS，全部用 Surge 原生功能，对照现成的 LoonKissSurge 拼多多去广告.beta.sgmodule
-# （QingRex/LoonKissSurge，源自可莉原版）：
-# - Loon 的 response.json.delete / jq 对应 Surge 的 [Body Rewrite] http-response-jq
-# - Loon 的 reject_dict(200) 对应 Surge 的 [Map Local] data="{}" status-code=200
-# JS 版的问题：远程 JS 默认 24 小时才更新、一个请求只跑第一个匹配的脚本、超 max-size 就跳过，
-# 所以底栏时有时无、个人中心商品区一直还在。原生写法没有这些问题。
+# 修正说明（相对 commit a9e10260 的改动）：
+# 1. [Rule] 直连 IP 的两条恢复 Loon 原版的 AND + USER-AGENT 限定（原来写成裸 URL-REGEX，
+#    会误伤其它 App 的直连 IP HTTP 请求，且失去 Pinduoduo 限定）。
+# 2. [Rule] 13 条 DOMAIN REJECT 加 pre-matching（LoonKissSurge 同款写法），DNS 阶段就拒绝，
+#    优先级最高，不会被其它模块/主配置的规则抢先匹配。
+# 3. [Body Rewrite] / [Map Local] 所有 pattern 末尾的 \? 改成 (\?|$)：原来要求 URL 在路径后
+#    紧跟 ?，App 一旦用无 query 的形式（或 POST）调用同一接口，规则就匹配不上；
+#    (\?|$) 有 query 也匹配、无 query 也匹配，且不会误匹配更长的路径。
+# 4. [Body Rewrite] 底栏那条 jq 换成防缺失字段写法（本地 jq 1.7 实测 10 种边界情况全部 rc=0）：
+#    原写法里 bottom_tabs / buffer_bottom_tabs / all_top_opts 三者任一缺失或为 null，
+#    map() 就会报 Cannot iterate over null，整条规则被 Surge 跳过，底栏一个都不滤。
+# 5. [MITM] 显式加 h2 = true、auto-quic-block = true（模块可覆盖这两个 MITM 键），
+#    防止 App 侧开关被关掉导致 QUIC/HTTP2 流量绕过 MITM。
+# 6. homepage/hub 不再只靠 [Body Rewrite]（见下方 Tier 2 说明）。
 
 [Rule]
 AND,((DOMAIN,api.pinduoduo.com),(PROTOCOL,UDP)),REJECT-NO-DROP
 AND,((DOMAIN,api.yangkeduo.com),(PROTOCOL,UDP)),REJECT-NO-DROP
-URL-REGEX,^http:\/\/((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/d(\d)?,REJECT
-URL-REGEX,^http:\/\/\[[0-9a-fA-F:]+\]\/d(\d)?\?,REJECT
-DOMAIN,titan.pinduoduo.com,REJECT
-DOMAIN,xg.pinduoduo.com,REJECT
-DOMAIN,cdl-1.pddpic.com,REJECT
-DOMAIN,cdl-p2.pddpic.com,REJECT
-DOMAIN,cd-1.pddpic.com,REJECT
-DOMAIN,apm.pinduoduo.com,REJECT
-DOMAIN,th-b.pinduoduo.com,REJECT
-DOMAIN,ta.pinduoduo.com,REJECT
-DOMAIN,th.pinduoduo.com,REJECT
-DOMAIN,th-a.pinduoduo.com,REJECT
-DOMAIN,ta-a.pinduoduo.com,REJECT
-DOMAIN,meta.pinduoduo.com,REJECT
-DOMAIN,apm-a.pinduoduo.com,REJECT
+AND,((URL-REGEX,"^http:\/\/((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/d(\d)?"),(USER-AGENT,"*com.xunmeng.pinduoduo*")),REJECT
+AND,((URL-REGEX,"^http:\/\/\[[0-9a-fA-F:]+\]\/d(\d)?\?"),(USER-AGENT,"*com.xunmeng.pinduoduo*")),REJECT
+DOMAIN,titan.pinduoduo.com,REJECT-NO-DROP,extended-matching,pre-matching
+DOMAIN,xg.pinduoduo.com,REJECT,extended-matching,pre-matching
+DOMAIN,cdl-1.pddpic.com,REJECT,extended-matching,pre-matching
+DOMAIN,titan.pinduoduo.com,REJECT,extended-matching,pre-matching
+DOMAIN,cdl-p2.pddpic.com,REJECT,extended-matching,pre-matching
+DOMAIN,cd-1.pddpic.com,REJECT,extended-matching,pre-matching
+DOMAIN,apm.pinduoduo.com,REJECT,extended-matching,pre-matching
+DOMAIN,th-b.pinduoduo.com,REJECT,extended-matching,pre-matching
+DOMAIN,ta.pinduoduo.com,REJECT,extended-matching,pre-matching
+DOMAIN,th.pinduoduo.com,REJECT,extended-matching,pre-matching
+DOMAIN,th-a.pinduoduo.com,REJECT,extended-matching,pre-matching
+DOMAIN,ta-a.pinduoduo.com,REJECT,extended-matching,pre-matching
+DOMAIN,meta.pinduoduo.com,REJECT,extended-matching,pre-matching
+DOMAIN,apm-a.pinduoduo.com,REJECT,extended-matching,pre-matching
 
 [Body Rewrite]
-http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub\? 'delpaths([["result","dy_module","irregular_banner_dy"]])'
-http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub\? 'delpaths([["result","icon_set"]])'
-http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub\? 'delpaths([["result","search_bar_hot_query"]])'
-http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub\? '.result.bottom_tabs? |= map(select(.link == "index.html" or .link == "chat_list.html" or .link == "personal.html")) | .result.buffer_bottom_tabs? |= map(select(.link == "index.html" or .link == "chat_list.html" or .link == "personal.html")) | .result.all_top_opts? |= map(del(.selected_image, .image, .height, .width))'
-http-response-jq ^https:\/\/api\.pinduoduo\.com\/search\? 'delpaths([["expansion"]])'
-http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/philo\/personal\/hub\? 'delpaths([["monthly_card_entrance"]])'
-http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/philo\/personal\/hub\? 'delpaths([["personal_center_style_v2_vo"]])'
-http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/philo\/personal\/hub\? 'delpaths([["icon_set","icons"]])'
-http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/philo\/personal\/hub\? 'delpaths([["icon_set","top_personal_icons"]])'
-http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/philo\/personal\/hub\? 'delpaths([["personal_banner"]])'
-http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/oak\/integration\/render\? 'delpaths([["bottom_section_list"]])'
-http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/oak\/integration\/render\? 'delpaths([["ui","bottom_section"]])'
-http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/oak\/integration\/render\? 'delpaths([["ui","live_section","float_info"]])'
-http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v3\/query\/order_detail_group\? 'delpaths([["data","goods_list"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub(\?|$) 'delpaths([["result","dy_module","irregular_banner_dy"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub(\?|$) 'delpaths([["result","icon_set"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub(\?|$) 'delpaths([["result","search_bar_hot_query"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub(\?|$) 'if (.result | type) == "object" then .result |= (if (.bottom_tabs | type) == "array" then .bottom_tabs |= map(select(.link == "index.html" or .link == "chat_list.html" or .link == "personal.html")) else . end | if (.buffer_bottom_tabs | type) == "array" then .buffer_bottom_tabs |= map(select(.link == "index.html" or .link == "chat_list.html" or .link == "personal.html")) else . end | if (.all_top_opts | type) == "array" then .all_top_opts |= map(del(.selected_image, .image, .height, .width)) else . end) else . end'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/search(\?|$) 'delpaths([["expansion"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/philo\/personal\/hub(\?|$) 'delpaths([["monthly_card_entrance"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/philo\/personal\/hub(\?|$) 'delpaths([["personal_center_style_v2_vo"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/philo\/personal\/hub(\?|$) 'delpaths([["icon_set","icons"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/philo\/personal\/hub(\?|$) 'delpaths([["icon_set","top_personal_icons"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/philo\/personal\/hub(\?|$) 'delpaths([["personal_banner"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/oak\/integration\/render(\?|$) 'delpaths([["bottom_section_list"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/oak\/integration\/render(\?|$) 'delpaths([["ui","bottom_section"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/oak\/integration\/render(\?|$) 'delpaths([["ui","live_section","float_info"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v3\/query\/order_detail_group(\?|$) 'delpaths([["data","goods_list"]])'
 http-response-jq ^https:\/\/api\.pinduoduo\.com\/order\/ 'delpaths([["marketing_banner_vo"]])'
 http-response-jq ^https:\/\/api\.pinduoduo\.com\/order\/ 'delpaths([["shipping","banner_above_recommend"]])'
-http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/aristotle\/order_list_v4\? '.orders |= map(.order_buttons |= map(del(.order_growth_tip)))'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/aristotle\/order_list_v4(\?|$) '.orders |= map(.order_buttons |= map(del(.order_growth_tip)))'
 
 [Map Local]
-^https:\/\/api\.pinduoduo\.com\/api\/aristotle\/unrated_order_for_unreceived_tab\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
-^https:\/\/api\.pinduoduo\.com\/api\/aristotle\/query_order_list_tabs_element\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
-^https:\/\/api\.pinduoduo\.com\/api\/aquarius\/hungary\/global\/homepage\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
-^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v3\/query\/order_express_group\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
-^https:\/\/api\.pinduoduo\.com\/search_hotquery\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
-^https:\/\/api\.pinduoduo\.com\/api\/zaire_biz\/chat\/resource\/get_list_data\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
-^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v3\/query\/new_chat_group\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
-^https:\/\/api\.pinduoduo\.com\/api\/alexa\/goods\/back_up\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
-^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v3\/query\/personal\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
-^https:\/\/api\.pinduoduo\.com\/api\/brand-olay\/goods_detail\/bybt_guide\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
-^https:\/\/api\.pinduoduo\.com\/api\/engels\/reviews\/require\/append\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
-^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v3\/query\/my_order_group\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
-^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v3\/query\/likes\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
-^https:\/\/api\.pinduoduo\.com\/api\/phantom\/gbdbpdv\/extra\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
-^https:\/\/api\.pinduoduo\.com\/api\/manufacturer\/cross\/shortcut\/list\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
-^https:\/\/api\.pinduoduo\.com\/api\/dunkirk\/liveactivity\/push\/create\/url\/report\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
-^https:\/\/api\.pinduoduo\.com\/api\/growth\/nagato\/app\/index\/gather\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
-^https:\/\/api\.pinduoduo\.com\/api\/engels\/wait\/receive\/review\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
-^https:\/\/api\.pinduoduo\.com\/api\/buffon\/nasus\/recommend\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
-^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v2\/query\/goods_detail_with_tags\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/aristotle\/unrated_order_for_unreceived_tab(\?|$) data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/aristotle\/query_order_list_tabs_element(\?|$) data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/aquarius\/hungary\/global\/homepage(\?|$) data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v3\/query\/order_express_group(\?|$) data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/search_hotquery(\?|$) data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/zaire_biz\/chat\/resource\/get_list_data(\?|$) data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v3\/query\/new_chat_group(\?|$) data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/alexa\/goods\/back_up(\?|$) data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v3\/query\/personal(\?|$) data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/brand-olay\/goods_detail\/bybt_guide(\?|$) data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/engels\/reviews\/require\/append(\?|$) data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v3\/query\/my_order_group(\?|$) data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v3\/query\/likes(\?|$) data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/phantom\/gbdbpdv\/extra(\?|$) data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/manufacturer\/cross\/shortcut\/list(\?|$) data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/dunkirk\/liveactivity\/push\/create\/url\/report(\?|$) data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/growth\/nagato\/app\/index\/gather(\?|$) data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/engels\/wait\/receive\/review(\?|$) data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/buffon\/nasus\/recommend(\?|$) data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v2\/query\/goods_detail_with_tags(\?|$) data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+
+# Tier 2（仅当底栏在上面这版仍时好时坏时启用）：homepage/hub 的响应在双十一期间
+# 很可能超过 Surge iOS 的 Body Rewrite 1MB 上限，超了就整条响应原样放行，底栏一定失败。
+# 绕法是把 homepage/hub 单独交给一个脚本处理（脚本 max-size 可放宽），其它 6 个接口
+# 继续走 [Body Rewrite]。启用时：删掉上面 [Body Rewrite] 里 4 条 homepage/hub 的行，
+# 取消下面 [Script] 的注释，并把 PinDuoDuo_homepage_hub.js 推到同一仓库。
+# 注意：一个请求只跑一个 http-response 脚本，若其它已装模块也有匹配 api.pinduoduo.com
+# 的 http-response 脚本且排在前面，这个脚本就跑不到（见调查报告第 6 节）。
+
+[Script]
+PinDuoDuo_homepage = type=http-response, pattern=^https://api\.pinduoduo\.com/api/alexa/homepage/hub(\?|$), script-path=https://raw.githubusercontent.com/onder0402/-api/main/PinDuoDuo_homepage_hub.js, requires-body=true, max-size=10485760, timeout=30, script-update-interval=0
 
 [MITM]
 hostname = %APPEND% api.pinduoduo.com, api.yangkeduo.com, m.pinduoduo.net
+h2 = true
+auto-quic-block = true
