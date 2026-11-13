@@ -11,6 +11,7 @@
 
 const url = $request.url || "";
 let body = $response.body || "";
+try { console.log("[PDD] hit url=" + url + " body_len=" + body.length); } catch (e) {}
 
 function delPath(obj, path) {
   if (!obj || typeof obj !== "object") return;
@@ -47,6 +48,7 @@ try {
         obj.result[k] = obj.result[k].filter((t) => t && keep.includes(t.link));
       }
     });
+    try { console.log("[PDD] homepage bottom_tabs before=" + (obj.result && obj.result.bottom_tabs ? obj.result.bottom_tabs.length : "none") + " keys=" + (obj.result ? Object.keys(obj.result).join(",") : "no-result")); } catch (e) {}
     if (obj.result && Array.isArray(obj.result.all_top_opts)) {
       obj.result.all_top_opts.forEach((o) => {
         if (o && typeof o === "object") {
