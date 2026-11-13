@@ -1,0 +1,58 @@
+#!name=拼多多去广告 Surge版
+#!desc=移除开屏广告、底栏多多视频、会场入口、聊天页面精选推荐及推广，精简首页和个人中心。由可莉 / ZenmoFeiShi 的 Loon 插件 PinDuoDuo_remove_ads.plugin (Moli-X/Tool, 2026-10-02) 改写为 Surge 版：原版用的 Loon 3.5 内置 Rewrite 语法 response.json.delete / response.json.jq / reject_dict 在 Surge 里不存在，改用 http-response JS 实现。
+#!author=ZenmoFeiShi, 可莉🅥 (原版) / Surge改写
+#!homepage=https://github.com/Moli-X/Tool/blob/X/Loon/Plugin/Kelee/PinDuoDuo_remove_ads.plugin
+#!icon=https://raw.githubusercontent.com/luestr/IconResource/main/App_icon/120px/PinDuoDuo.png
+#!category=去广告
+
+[Rule]
+# 原版 [Rule] 里 AND((URL-REGEX),(USER-AGENT)) 和 AND((DOMAIN),(PROTOCOL,QUIC)) 是 Loon 的复合规则，Surge 不支持，拆成下面两条直连 IP 的 URL-REGEX；QUIC 那条在 Surge 里靠下面的域名 REJECT + 关闭 QUIC 兜底，见 README。
+URL-REGEX,^http:\/\/((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/d(\d)?,REJECT
+URL-REGEX,^http:\/\/\[[0-9a-fA-F:]+\]\/d(\d)?\?,REJECT
+DOMAIN,titan.pinduoduo.com,REJECT
+DOMAIN,xg.pinduoduo.com,REJECT
+DOMAIN,cdl-1.pddpic.com,REJECT
+DOMAIN,cdl-p2.pddpic.com,REJECT
+DOMAIN,cd-1.pddpic.com,REJECT
+DOMAIN,apm.pinduoduo.com,REJECT
+DOMAIN,th-b.pinduoduo.com,REJECT
+DOMAIN,ta.pinduoduo.com,REJECT
+DOMAIN,th.pinduoduo.com,REJECT
+DOMAIN,th-a.pinduoduo.com,REJECT
+DOMAIN,ta-a.pinduoduo.com,REJECT
+DOMAIN,meta.pinduoduo.com,REJECT
+DOMAIN,apm-a.pinduoduo.com,REJECT
+
+[URL Rewrite]
+# 原版 Loon: request if ${url} ~= /.../i then reject_dict(200)
+# Surge 等价写法: ^url - reject-dict
+^https://api\.pinduoduo\.com/api/aristotle/unrated_order_for_unreceived_tab\? - reject-dict
+^https://api\.pinduoduo\.com/api/aristotle/query_order_list_tabs_element\? - reject-dict
+^https://api\.pinduoduo\.com/api/aquarius/hungary/global/homepage\? - reject-dict
+^https://api\.pinduoduo\.com/api/caterham/v3/query/order_express_group\? - reject-dict
+^https://api\.pinduoduo\.com/search_hotquery\? - reject-dict
+^https://api\.pinduoduo\.com/api/zaire_biz/chat/resource/get_list_data\? - reject-dict
+^https://api\.pinduoduo\.com/api/caterham/v3/query/new_chat_group\? - reject-dict
+^https://api\.pinduoduo\.com/api/alexa/goods/back_up\? - reject-dict
+^https://api\.pinduoduo\.com/api/caterham/v3/query/personal\? - reject-dict
+^https://api\.pinduoduo\.com/api/brand-olay/goods_detail/bybt_guide\? - reject-dict
+^https://api\.pinduoduo\.com/api/engels/reviews/require/append\? - reject-dict
+^https://api\.pinduoduo\.com/api/caterham/v3/query/my_order_group\? - reject-dict
+^https://api\.pinduoduo\.com/api/caterham/v3/query/likes\? - reject-dict
+^https://api\.pinduoduo\.com/api/phantom/gbdbpdv/extra\? - reject-dict
+^https://api\.pinduoduo\.com/api/manufacturer/cross/shortcut/list\? - reject-dict
+^https://api\.pinduoduo\.com/api/dunkirk/liveactivity/push/create/url/report\? - reject-dict
+^https://api\.pinduoduo\.com/api/growth/nagato/app/index/gather\? - reject-dict
+^https://api\.pinduoduo\.com/api/engels/wait/receive/review\? - reject-dict
+^https://api\.pinduoduo\.com/api/buffon/nasus/recommend\? - reject-dict
+^https://api\.pinduoduo\.com/api/caterham/v2/query/goods_detail_with_tags\? - reject-dict
+
+[Script]
+# 主逻辑：把原版 7 条 response.json.delete / jq 全部放进一个 JS，按 URL 分发
+# script-path 用本仓库的绝对 raw 地址，Surge 从 URL 安装模块后直接能拉到 JS。
+PinDuoDuo_remove_ads = type=http-response, pattern=^https://api\.pinduoduo\.com/(api/alexa/homepage/hub\?|search\?|api/philo/personal/hub\?|api/oak/integration/render\?|api/caterham/v3/query/order_detail_group\?|order/|api/aristotle/order_list_v4\?), script-path=https://raw.githubusercontent.com/onder0402/-api/main/PinDuoDuo_remove_ads_surge.js, requires-body=true, timeout=10
+# 扫码取件页：原版自带 JS，直接用原作者的远程地址，不用改写
+PinDuoDuo_scan = type=http-response, pattern=^https://m\.pinduoduo\.net/mdkd/package\?from_app_scan, script-path=https://raw.githubusercontent.com/Moli-X/Tool/X/Loon/Plugin/Kelee/Script/PinDuoDuo_remove_ads.js, requires-body=true, timeout=10
+
+[MITM]
+hostname = %APPEND% api.pinduoduo.com, m.pinduoduo.net
