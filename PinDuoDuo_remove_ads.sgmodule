@@ -17,7 +17,7 @@ AND,((DOMAIN,api.yangkeduo.com),(PROTOCOL,QUIC)),REJECT-NO-DROP
 # 另外：下面 20 条本来是 [URL Rewrite] 的 reject-dict，实测在 Surge 里没命中
 # （manufacturer/cross/shortcut/list 照样 DIRECT 回了 824B，dunkirk 的 url/report 也一样），
 # 改成 [Rule] 的 URL-REGEX REJECT，直接在 TCP 层拦，不依赖 MITM 解密和 URL Rewrite。
-# [URL Rewrite] 那 20 条保留做兜底。
+# [URL Rewrite] 那 20 条已删除：Surge 日志明确说 reject-dict 是无效类型。
 URL-REGEX,^https://api\.pinduoduo\.com/api/aristotle/unrated_order_for_unreceived_tab,REJECT
 URL-REGEX,^https://api\.pinduoduo\.com/api/aristotle/query_order_list_tabs_element,REJECT
 URL-REGEX,^https://api\.pinduoduo\.com/api/aquarius/hungary/global/homepage,REJECT
@@ -54,30 +54,8 @@ DOMAIN,ta-a.pinduoduo.com,REJECT
 DOMAIN,meta.pinduoduo.com,REJECT
 DOMAIN,apm-a.pinduoduo.com,REJECT
 
-[URL Rewrite]
-# 原版 Loon: request if ${url} ~= /.../i then reject_dict(200)
-# Surge 等价写法: ^url - reject-dict
-^https://api\.pinduoduo\.com/api/aristotle/unrated_order_for_unreceived_tab\? - reject-dict
-^https://api\.pinduoduo\.com/api/aristotle/query_order_list_tabs_element\? - reject-dict
-^https://api\.pinduoduo\.com/api/aquarius/hungary/global/homepage\? - reject-dict
-^https://api\.pinduoduo\.com/api/caterham/v3/query/order_express_group\? - reject-dict
-^https://api\.pinduoduo\.com/search_hotquery\? - reject-dict
-^https://api\.pinduoduo\.com/api/zaire_biz/chat/resource/get_list_data\? - reject-dict
-^https://api\.pinduoduo\.com/api/caterham/v3/query/new_chat_group\? - reject-dict
-^https://api\.pinduoduo\.com/api/alexa/goods/back_up\? - reject-dict
-^https://api\.pinduoduo\.com/api/caterham/v3/query/personal\? - reject-dict
-^https://api\.pinduoduo\.com/api/brand-olay/goods_detail/bybt_guide\? - reject-dict
-^https://api\.pinduoduo\.com/api/engels/reviews/require/append\? - reject-dict
-^https://api\.pinduoduo\.com/api/caterham/v3/query/my_order_group\? - reject-dict
-^https://api\.pinduoduo\.com/api/caterham/v3/query/likes\? - reject-dict
-^https://api\.pinduoduo\.com/api/phantom/gbdbpdv/extra\? - reject-dict
-^https://api\.pinduoduo\.com/api/manufacturer/cross/shortcut/list\? - reject-dict
-^https://api\.pinduoduo\.com/api/dunkirk/liveactivity/push/create/url/report\? - reject-dict
-^https://api\.pinduoduo\.com/api/growth/nagato/app/index/gather\? - reject-dict
-^https://api\.pinduoduo\.com/api/engels/wait/receive/review\? - reject-dict
-^https://api\.pinduoduo\.com/api/buffon/nasus/recommend\? - reject-dict
-^https://api\.pinduoduo\.com/api/caterham/v2/query/goods_detail_with_tags\? - reject-dict
-
+# [URL Rewrite] 已删除：Surge 不支持 reject-dict，只支持 header/302/307/reject，
+# 那 20 条接口已经改走 [Rule] URL-REGEX REJECT，不需要这里。
 [Script]
 # 主逻辑：把原版 7 条 response.json.delete / jq 全部放进一个 JS，按 URL 分发。
 # 这里拆成 7 条单独的脚本（都指向同一个 JS），不用一条带 | 的合并正则：
