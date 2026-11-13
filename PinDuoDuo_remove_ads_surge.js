@@ -28,38 +28,29 @@ if (isRejectDict) {
   try { console.log("[PDD] reject_dict url=" + url); } catch (e) {}
   body = "{}";
 }
-// 结构探针：personal / oak / render 这几条是个人中心的数据源，通知里报它们返回的顶层字段，
-// 就能知道商品区到底叫什么字段（之前猜的 bottom_section_list 一个都没命中）。
-// 深探针：personal/hub 里重点找 recommend/feed/goods 相关的字段和 module_list_map 的键，
-// 上次通知里看到 show_recommend_feed_ban... 被截断了，这次把带 recommend/feed 的键和值都报出来。
-try {
-  if (!isRejectDict && /personal\/hub/.test(url) && body) {
-    const _o = JSON.parse(body);
-    const _found = [];
-    const _walk = (o, depth, path) => {
-      if (!o || typeof o !== "object" || depth > 3) return;
-      if (Array.isArray(o)) { o.slice(0, 2).forEach((x) => _walk(x, depth + 1, path)); return; }
-      for (const k in o) {
-        const lk = k.toLowerCase();
-        if (lk.includes("recommend") || lk.includes("feed") || lk.includes("goods_list")) {
-          const v = o[k];
-          _found.push(path + k + "=" + (typeof v === "object" ? "obj" : String(v)).slice(0, 30));
-        }
-        if (k === "module_list_map" && o[k] && typeof o[k] === "object") {
-          _found.push("module_list_map keys=" + Object.keys(o[k]).join(",").slice(0, 100));
-        }
-        if (o[k] && typeof o[k] === "object") _walk(o[k], depth + 1, path + k + ".");
-      }
-    };
-    _walk(_o, 0, "");
-    $notification.post("PDD深探", "personal/hub", _found.join(" | ").slice(0, 300) || "no recommend/feed keys");
-  } else if (!isRejectDict && /personal|oak|render/.test(url) && body) {
-    const _o = JSON.parse(body);
-    const _keys = Object.keys(_o).join(",");
-    const _rk = _o.result && typeof _o.result === "object" ? Object.keys(_o.result).join(",") : "";
-    $notification.post("PDD结构", url.split("?")[0].slice(-60), "顶层:" + _keys.slice(0, 120) + " | result:" + _rk.slice(0, 120));
+// 个人中心商品区（推荐流）：上次通知里 personal/hub 顶层有 show_recommend_feed_ban... 和 module_list_map，
+// 直接把所有 show_recommend_feed* 开关关掉，并删掉 module_list_map 里带 feed/recommend 的模块。
+function scrubRecommendFeed(obj, depth) {
+  if (!obj || typeof obj !== "object" || depth > 6) return 0;
+  let n = 0;
+  if (Array.isArray(obj)) {
+    obj.forEach((o) => { n += scrubRecommendFeed(o, depth + 1); });
+    return n;
   }
-} catch (e) {}
+  for (const k in obj) {
+    const lk = k.toLowerCase();
+    if (lk.includes("show_recommend_feed")) {
+      if (obj[k] !== false && obj[k] !== 0) { obj[k] = false; n += 1; }
+    } else if (k === "module_list_map" && obj[k] && typeof obj[k] === "object") {
+      for (const mk in obj[k]) {
+        const ml = mk.toLowerCase();
+        if (ml.includes("feed") || ml.includes("recommend")) { delete obj[k][mk]; n += 1; }
+      }
+    }
+    if (obj[k] && typeof obj[k] === "object") n += scrubRecommendFeed(obj[k], depth + 1);
+  }
+  return n;
+}
 try { console.log("[PDD] hit url=" + url + " body_len=" + body.length); } catch (e) {}
 // 通用兜底：不管接口叫什么，只要返回里有 bottom_tabs 就过滤。
 // 2026-11-14 用户实测：最近请求里根本没有 homepage/hub 这条，说明新版 App
@@ -107,9 +98,10 @@ try {
   const _probe = JSON.parse(body);
   const _removed = scrubBottomTabs(_probe, 0);
   const _sections = scrubSectionList(_probe, 0);
-  if (_removed > 0 || _sections > 0) {
-    try { $notification.post("PDD测试", "底栏/商品区过滤到了", url.slice(0, 120) + " 底栏去了" + _removed + "个 商品区去了" + _sections + "个"); } catch (e) {}
-    try { console.log("[PDD] scrub bottom_tabs removed=" + _removed + " sections=" + _sections + " url=" + url); } catch (e) {}
+  const _feed = scrubRecommendFeed(_probe, 0);
+  if (_removed > 0 || _sections > 0 || _feed > 0) {
+    try { $notification.post("PDD测试", "底栏/商品区过滤到了", url.slice(0, 120) + " 底栏去了" + _removed + "个 商品区去了" + _sections + "个 推荐流关了" + _feed + "个"); } catch (e) {}
+    try { console.log("[PDD] scrub bottom_tabs removed=" + _removed + " sections=" + _sections + " feed=" + _feed + " url=" + url); } catch (e) {}
     body = JSON.stringify(_probe);
   }
 } catch (e) {}
