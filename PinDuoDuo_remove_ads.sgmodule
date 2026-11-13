@@ -6,13 +6,13 @@
 #!category=去广告
 
 [Rule]
-# 关键：先拦 QUIC。原版 Loon 有 AND((DOMAIN,api.pinduoduo.com),(PROTOCOL,QUIC)) REJECT，
-# 拼多多走 QUIC/HTTP3 时 MITM 解不开，脚本永远命中不了，底栏就改不动。
-# Surge 里用 AND + PROTOCOL,QUIC + REJECT-NO-DROP（不能用 REJECT-DROP，否则 App 不会回落 TCP），
-# 逼它回落到 TCP/TLS 再走 MITM。必须放最前面。
-# 注意：主配置里 MITM 的“自动拦截 QUIC”也要开着，这条是双保险。
-AND,((DOMAIN,api.pinduoduo.com),(PROTOCOL,QUIC)),REJECT-NO-DROP
-AND,((DOMAIN,api.yangkeduo.com),(PROTOCOL,QUIC)),REJECT-NO-DROP
+# 关键：先拦 QUIC。原版 Loon 是 AND((DOMAIN,api.pinduoduo.com),(PROTOCOL,QUIC)) REJECT，
+# 但 Surge 里根本没有 PROTOCOL,QUIC 这种写法，查官方文档后确认：
+# Surge 拦 QUIC 的标准写法是 PROTOCOL,UDP + DEST-PORT,443，之前那两条是死规则，从没生效过，
+# 所以拼多多一直走 QUIC/HTTP3，MITM 解不开，脚本永远跑不到，homepage/hub 也就从来没出现过。
+# 改成 Surge 的写法，逼它回落到 TCP/TLS 再走 MITM。必须放最前面。
+AND,((DOMAIN,api.pinduoduo.com),(PROTOCOL,UDP)),REJECT-NO-DROP
+AND,((DOMAIN,api.yangkeduo.com),(PROTOCOL,UDP)),REJECT-NO-DROP
 # 原版 [Rule] 里 AND((URL-REGEX),(USER-AGENT)) 是 Loon 的复合规则，Surge 不支持 USER-AGENT 条件，拆成下面两条直连 IP 的 URL-REGEX。
 # 2026-11-14：下面 20 条本来是 Loon 的 reject_dict(200)，即返回 200 空字典。
 # Surge 的 [Rule] REJECT 是直接断连，App 收到断连会用缓存，底栏就不变；
