@@ -33,6 +33,25 @@ try { console.log("[PDD] hit url=" + url + " body_len=" + body.length); } catch 
 // 通用兜底：不管接口叫什么，只要返回里有 bottom_tabs 就过滤。
 // 2026-11-14 用户实测：最近请求里根本没有 homepage/hub 这条，说明新版 App
 // 已经不走 api/alexa/homepage/hub 了，之前只认这一个 URL 的写法永远跑不到。
+// 个人中心下面那排商品（图里 YAYA、帮宝适那排）大概率是 oak/render 的 bottom_section_list，
+// 但它不一定在顶层，可能嵌在 result/ui/data 下面任意一层，之前只删顶层删不到。
+// 这里递归删掉任何层级的 bottom_section_list，顺带删 personal_banner / monthly_card_entrance。
+function scrubSectionList(obj, depth) {
+  if (!obj || typeof obj !== "object" || depth > 6) return 0;
+  let n = 0;
+  if (Array.isArray(obj)) {
+    obj.forEach((o) => { n += scrubSectionList(o, depth + 1); });
+    return n;
+  }
+  ["bottom_section_list", "personal_banner", "monthly_card_entrance"].forEach((k) => {
+    if (k in obj) { delete obj[k]; n += 1; }
+  });
+  if (obj.ui && typeof obj.ui === "object" && obj.ui.bottom_section) { delete obj.ui.bottom_section; n += 1; }
+  for (const k in obj) {
+    if (obj[k] && typeof obj[k] === "object") n += scrubSectionList(obj[k], depth + 1);
+  }
+  return n;
+}
 function scrubBottomTabs(obj, depth) {
   if (!obj || typeof obj !== "object" || depth > 6) return 0;
   let n = 0;
@@ -56,9 +75,10 @@ function scrubBottomTabs(obj, depth) {
 try {
   const _probe = JSON.parse(body);
   const _removed = scrubBottomTabs(_probe, 0);
-  if (_removed > 0) {
-    try { $notification.post("PDD测试", "底栏过滤到了", url.slice(0, 120) + " 去了" + _removed + "个"); } catch (e) {}
-    try { console.log("[PDD] scrub bottom_tabs removed=" + _removed + " url=" + url); } catch (e) {}
+  const _sections = scrubSectionList(_probe, 0);
+  if (_removed > 0 || _sections > 0) {
+    try { $notification.post("PDD测试", "底栏/商品区过滤到了", url.slice(0, 120) + " 底栏去了" + _removed + "个 商品区去了" + _sections + "个"); } catch (e) {}
+    try { console.log("[PDD] scrub bottom_tabs removed=" + _removed + " sections=" + _sections + " url=" + url); } catch (e) {}
     body = JSON.stringify(_probe);
   }
 } catch (e) {}
