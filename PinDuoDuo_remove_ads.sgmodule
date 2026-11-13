@@ -48,9 +48,18 @@ DOMAIN,apm-a.pinduoduo.com,REJECT
 ^https://api\.pinduoduo\.com/api/caterham/v2/query/goods_detail_with_tags\? - reject-dict
 
 [Script]
-# 主逻辑：把原版 7 条 response.json.delete / jq 全部放进一个 JS，按 URL 分发
+# 主逻辑：把原版 7 条 response.json.delete / jq 全部放进一个 JS，按 URL 分发。
+# 这里拆成 7 条单独的脚本（都指向同一个 JS），不用一条带 | 的合并正则：
+# 一是 Surge 的脚本列表里每条都能单独看到、单独开关，出问题好定位；
+# 二是避免合并正则在个别 Surge 版本里解析不到。
 # script-path 用本仓库的绝对 raw 地址，Surge 从 URL 安装模块后直接能拉到 JS。
-PinDuoDuo_remove_ads = type=http-response, pattern=^https://api\.pinduoduo\.com/(api/alexa/homepage/hub\?|search\?|api/philo/personal/hub\?|api/oak/integration/render\?|api/caterham/v3/query/order_detail_group\?|order/|api/aristotle/order_list_v4\?), script-path=https://raw.githubusercontent.com/onder0402/-api/main/PinDuoDuo_remove_ads_surge.js, requires-body=true, timeout=10
+PinDuoDuo_homepage = type=http-response, pattern=^https://api\.pinduoduo\.com/api/alexa/homepage/hub\?, script-path=https://raw.githubusercontent.com/onder0402/-api/main/PinDuoDuo_remove_ads_surge.js, requires-body=true, timeout=10
+PinDuoDuo_search = type=http-response, pattern=^https://api\.pinduoduo\.com/search\?, script-path=https://raw.githubusercontent.com/onder0402/-api/main/PinDuoDuo_remove_ads_surge.js, requires-body=true, timeout=10
+PinDuoDuo_personal = type=http-response, pattern=^https://api\.pinduoduo\.com/api/philo/personal/hub\?, script-path=https://raw.githubusercontent.com/onder0402/-api/main/PinDuoDuo_remove_ads_surge.js, requires-body=true, timeout=10
+PinDuoDuo_oak = type=http-response, pattern=^https://api\.pinduoduo\.com/api/oak/integration/render\?, script-path=https://raw.githubusercontent.com/onder0402/-api/main/PinDuoDuo_remove_ads_surge.js, requires-body=true, timeout=10
+PinDuoDuo_order_detail = type=http-response, pattern=^https://api\.pinduoduo\.com/api/caterham/v3/query/order_detail_group\?, script-path=https://raw.githubusercontent.com/onder0402/-api/main/PinDuoDuo_remove_ads_surge.js, requires-body=true, timeout=10
+PinDuoDuo_order = type=http-response, pattern=^https://api\.pinduoduo\.com/order/, script-path=https://raw.githubusercontent.com/onder0402/-api/main/PinDuoDuo_remove_ads_surge.js, requires-body=true, timeout=10
+PinDuoDuo_order_list = type=http-response, pattern=^https://api\.pinduoduo\.com/api/aristotle/order_list_v4\?, script-path=https://raw.githubusercontent.com/onder0402/-api/main/PinDuoDuo_remove_ads_surge.js, requires-body=true, timeout=10
 # 扫码取件页：原版自带 JS，直接用原作者的远程地址，不用改写
 PinDuoDuo_scan = type=http-response, pattern=^https://m\.pinduoduo\.net/mdkd/package\?from_app_scan, script-path=https://raw.githubusercontent.com/Moli-X/Tool/X/Loon/Plugin/Kelee/Script/PinDuoDuo_remove_ads.js, requires-body=true, timeout=10
 
