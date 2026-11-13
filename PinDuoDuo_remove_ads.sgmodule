@@ -1,23 +1,20 @@
 #!name=拼多多去广告 Surge版
-#!desc=移除开屏广告、底栏多多视频、会场入口、聊天页面精选推荐及推广，精简首页和个人中心。由可莉 / ZenmoFeiShi 的 Loon 插件 PinDuoDuo_remove_ads.plugin (Moli-X/Tool, 2026-10-02) 改写为 Surge 版：原版用的 Loon 3.5 内置 Rewrite 语法 response.json.delete / response.json.jq / reject_dict 在 Surge 里不存在，改用 http-response JS 实现。
+#!desc=移除开屏广告、底栏多多视频、会场入口、聊天页面精选推荐及推广，精简首页和个人中心。由可莉 / ZenmoFeiShi 的 Loon 插件 PinDuoDuo_remove_ads.plugin (Moli-X/Tool, 2026-10-02) 改写为 Surge 版。
 #!author=ZenmoFeiShi, 可莉🅥 (原版) / Surge改写
 #!homepage=https://github.com/Moli-X/Tool/blob/X/Loon/Plugin/Kelee/PinDuoDuo_remove_ads.plugin
 #!icon=https://raw.githubusercontent.com/luestr/IconResource/main/App_icon/120px/PinDuoDuo.png
 #!category=去广告
 
+# 写法说明：不用 JS，全部用 Surge 原生功能，对照现成的 LoonKissSurge 拼多多去广告.beta.sgmodule
+# （QingRex/LoonKissSurge，源自可莉原版）：
+# - Loon 的 response.json.delete / jq 对应 Surge 的 [Body Rewrite] http-response-jq
+# - Loon 的 reject_dict(200) 对应 Surge 的 [Map Local] data="{}" status-code=200
+# JS 版的问题：远程 JS 默认 24 小时才更新、一个请求只跑第一个匹配的脚本、超 max-size 就跳过，
+# 所以底栏时有时无、个人中心商品区一直还在。原生写法没有这些问题。
+
 [Rule]
-# 关键：先拦 QUIC。原版 Loon 是 AND((DOMAIN,api.pinduoduo.com),(PROTOCOL,QUIC)) REJECT，
-# 但 Surge 里根本没有 PROTOCOL,QUIC 这种写法，查官方文档后确认：
-# Surge 拦 QUIC 的标准写法是 PROTOCOL,UDP + DEST-PORT,443，之前那两条是死规则，从没生效过，
-# 所以拼多多一直走 QUIC/HTTP3，MITM 解不开，脚本永远跑不到，homepage/hub 也就从来没出现过。
-# 改成 Surge 的写法，逼它回落到 TCP/TLS 再走 MITM。必须放最前面。
 AND,((DOMAIN,api.pinduoduo.com),(PROTOCOL,UDP)),REJECT-NO-DROP
 AND,((DOMAIN,api.yangkeduo.com),(PROTOCOL,UDP)),REJECT-NO-DROP
-# 原版 [Rule] 里 AND((URL-REGEX),(USER-AGENT)) 是 Loon 的复合规则，Surge 不支持 USER-AGENT 条件，拆成下面两条直连 IP 的 URL-REGEX。
-# 2026-11-14：下面 20 条本来是 Loon 的 reject_dict(200)，即返回 200 空字典。
-# Surge 的 [Rule] REJECT 是直接断连，App 收到断连会用缓存，底栏就不变；
-# 所以不在 Rule 里拦了，改由 JS 返回 {}，跟 Loon 的 reject_dict(200) 一样。
-# [URL Rewrite] 那 20 条已删除：Surge 日志明确说 reject-dict 是无效类型。
 URL-REGEX,^http:\/\/((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/d(\d)?,REJECT
 URL-REGEX,^http:\/\/\[[0-9a-fA-F:]+\]\/d(\d)?\?,REJECT
 DOMAIN,titan.pinduoduo.com,REJECT
@@ -34,25 +31,46 @@ DOMAIN,ta-a.pinduoduo.com,REJECT
 DOMAIN,meta.pinduoduo.com,REJECT
 DOMAIN,apm-a.pinduoduo.com,REJECT
 
-# [URL Rewrite] 已删除：Surge 不支持 reject-dict，只支持 header/302/307/reject，
-# 那 20 条接口现在改由 JS 返回 {}，跟 Loon 的 reject_dict(200) 一样，不需要这里。
-[Script]
-# 主逻辑：把原版 7 条 response.json.delete / jq 全部放进一个 JS，按 URL 分发。
-# 这里拆成 7 条单独的脚本（都指向同一个 JS），不用一条带 | 的合并正则：
-# 一是 Surge 的脚本列表里每条都能单独看到、单独开关，出问题好定位；
-# 二是避免合并正则在个别 Surge 版本里解析不到。
-# script-path 用本仓库的绝对 raw 地址，Surge 从 URL 安装模块后直接能拉到 JS。
-# 2026-11-14：用户实测最近请求里根本没有 homepage/hub，说明新版 App 不走这个接口。
-# 改成一条通用脚本：所有 api.pinduoduo.com / api.yangkeduo.com 的响应都过一遍 JS，
-# JS 里按内容过滤 bottom_tabs，不再只认 7 个固定 URL。
-# script-update-interval=0：Surge 对远程 JS 默认 24 小时才重新下载一次，
-# 之前每次改 JS 推上去，手机上还是旧版，所以一直“一样的 没效果”。
-# 加了 0 以后每次都拉最新的；但这次必须先删了模块重装一次，旧版 JS 里没有这个参数，更新模块拉不到新 JS。
-# 2026-11-14 00:24：用户重装后还是旧通知，说明 Surge 连模块重装都不重新下载同名 JS，
-# 所以脚本地址加 ?v=2 破缓存，换个地址 Surge 必须当新脚本下载；以后每次改 JS 就把 v 往上加。
-PinDuoDuo_all = type=http-response, pattern=^https://api\.(pinduoduo|yangkeduo)\.com/, script-path=https://raw.githubusercontent.com/onder0402/-api/main/PinDuoDuo_remove_ads_surge.js?v=5, requires-body=true, max-size=5242880, timeout=30, script-update-interval=0
-# 扫码取件页：原版自带 JS，直接用原作者的远程地址，不用改写
-PinDuoDuo_scan = type=http-response, pattern=^https://m\.pinduoduo\.net/mdkd/package\?from_app_scan, script-path=https://raw.githubusercontent.com/Moli-X/Tool/X/Loon/Plugin/Kelee/Script/PinDuoDuo_remove_ads.js, requires-body=true, max-size=5242880, timeout=30
+[Body Rewrite]
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub\? 'delpaths([["result","dy_module","irregular_banner_dy"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub\? 'delpaths([["result","icon_set"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub\? 'delpaths([["result","search_bar_hot_query"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub\? '.result.bottom_tabs? |= map(select(.link | IN("index.html", "chat_list.html", "personal.html"))) | .result.buffer_bottom_tabs? |= map(select(.link | IN("index.html", "chat_list.html", "personal.html"))) | .result.all_top_opts |= map(del(.selected_image, .image, .height, .width))'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/search\? 'delpaths([["expansion"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/philo\/personal\/hub\? 'delpaths([["monthly_card_entrance"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/philo\/personal\/hub\? 'delpaths([["personal_center_style_v2_vo"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/philo\/personal\/hub\? 'delpaths([["icon_set","icons"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/philo\/personal\/hub\? 'delpaths([["icon_set","top_personal_icons"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/philo\/personal\/hub\? 'delpaths([["personal_banner"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/oak\/integration\/render\? 'delpaths([["bottom_section_list"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/oak\/integration\/render\? 'delpaths([["ui","bottom_section"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/oak\/integration\/render\? 'delpaths([["ui","live_section","float_info"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v3\/query\/order_detail_group\? 'delpaths([["data","goods_list"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/order\/ 'delpaths([["marketing_banner_vo"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/order\/ 'delpaths([["shipping","banner_above_recommend"]])'
+http-response-jq ^https:\/\/api\.pinduoduo\.com\/api\/aristotle\/order_list_v4\? '.orders |= map(.order_buttons |= map(del(.order_growth_tip)))'
+
+[Map Local]
+^https:\/\/api\.pinduoduo\.com\/api\/aristotle\/unrated_order_for_unreceived_tab\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/aristotle\/query_order_list_tabs_element\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/aquarius\/hungary\/global\/homepage\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v3\/query\/order_express_group\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/search_hotquery\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/zaire_biz\/chat\/resource\/get_list_data\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v3\/query\/new_chat_group\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/alexa\/goods\/back_up\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v3\/query\/personal\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/brand-olay\/goods_detail\/bybt_guide\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/engels\/reviews\/require\/append\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v3\/query\/my_order_group\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v3\/query\/likes\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/phantom\/gbdbpdv\/extra\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/manufacturer\/cross\/shortcut\/list\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/dunkirk\/liveactivity\/push\/create\/url\/report\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/growth\/nagato\/app\/index\/gather\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/engels\/wait\/receive\/review\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/buffon\/nasus\/recommend\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v2\/query\/goods_detail_with_tags\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
 
 [MITM]
 hostname = %APPEND% api.pinduoduo.com, api.yangkeduo.com, m.pinduoduo.net
