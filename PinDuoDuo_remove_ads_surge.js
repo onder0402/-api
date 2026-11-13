@@ -11,6 +11,24 @@
 
 const url = $request.url || "";
 let body = $response.body || "";
+// Loon 的 reject_dict(200)：返回 200 + 空字典 {}，App 收到空数据就简化/不显示。
+// Surge 的 Rule REJECT 是直接断连，App 会用缓存，底栏就不变，所以这里用 JS 返回 {} 来模拟。
+const REJECT_PATHS = [
+  "/api/aristotle/unrated_order_for_unreceived_tab", "/api/aristotle/query_order_list_tabs_element",
+  "/api/aquarius/hungary/global/homepage", "/api/caterham/v3/query/order_express_group",
+  "/search_hotquery", "/api/zaire_biz/chat/resource/get_list_data", "/api/caterham/v3/query/new_chat_group",
+  "/api/alexa/goods/back_up", "/api/caterham/v3/query/personal", "/api/brand-olay/goods_detail/bybt_guide",
+  "/api/engels/reviews/require/append", "/api/caterham/v3/query/my_order_group", "/api/caterham/v3/query/likes",
+  "/api/phantom/gbdbpdv/extra", "/api/manufacturer/cross/shortcut/list",
+  "/api/dunkirk/liveactivity/push/create/url/report", "/api/growth/nagato/app/index/gather",
+  "/api/engels/wait/receive/review", "/api/buffon/nasus/recommend", "/api/caterham/v2/query/goods_detail_with_tags",
+];
+const isRejectDict = REJECT_PATHS.some((p) => url.includes(p));
+if (isRejectDict) {
+  try { console.log("[PDD] reject_dict url=" + url); } catch (e) {}
+  try { $notification.post("PDD测试", "reject_dict 返回空字典", url.slice(0, 120)); } catch (e) {}
+  body = "{}";
+}
 try { console.log("[PDD] hit url=" + url + " body_len=" + body.length); } catch (e) {}
 // 通用兜底：不管接口叫什么，只要返回里有 bottom_tabs 就过滤。
 // 2026-11-14 用户实测：最近请求里根本没有 homepage/hub 这条，说明新版 App
