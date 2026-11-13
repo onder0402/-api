@@ -14,6 +14,30 @@
 AND,((DOMAIN,api.pinduoduo.com),(PROTOCOL,QUIC)),REJECT-NO-DROP
 AND,((DOMAIN,api.yangkeduo.com),(PROTOCOL,QUIC)),REJECT-NO-DROP
 # 原版 [Rule] 里 AND((URL-REGEX),(USER-AGENT)) 是 Loon 的复合规则，Surge 不支持 USER-AGENT 条件，拆成下面两条直连 IP 的 URL-REGEX。
+# 另外：下面 20 条本来是 [URL Rewrite] 的 reject-dict，实测在 Surge 里没命中
+# （manufacturer/cross/shortcut/list 照样 DIRECT 回了 824B，dunkirk 的 url/report 也一样），
+# 改成 [Rule] 的 URL-REGEX REJECT，直接在 TCP 层拦，不依赖 MITM 解密和 URL Rewrite。
+# [URL Rewrite] 那 20 条保留做兜底。
+URL-REGEX,^https://api\.pinduoduo\.com/api/aristotle/unrated_order_for_unreceived_tab,REJECT
+URL-REGEX,^https://api\.pinduoduo\.com/api/aristotle/query_order_list_tabs_element,REJECT
+URL-REGEX,^https://api\.pinduoduo\.com/api/aquarius/hungary/global/homepage,REJECT
+URL-REGEX,^https://api\.pinduoduo\.com/api/caterham/v3/query/order_express_group,REJECT
+URL-REGEX,^https://api\.pinduoduo\.com/search_hotquery,REJECT
+URL-REGEX,^https://api\.pinduoduo\.com/api/zaire_biz/chat/resource/get_list_data,REJECT
+URL-REGEX,^https://api\.pinduoduo\.com/api/caterham/v3/query/new_chat_group,REJECT
+URL-REGEX,^https://api\.pinduoduo\.com/api/alexa/goods/back_up,REJECT
+URL-REGEX,^https://api\.pinduoduo\.com/api/caterham/v3/query/personal,REJECT
+URL-REGEX,^https://api\.pinduoduo\.com/api/brand-olay/goods_detail/bybt_guide,REJECT
+URL-REGEX,^https://api\.pinduoduo\.com/api/engels/reviews/require/append,REJECT
+URL-REGEX,^https://api\.pinduoduo\.com/api/caterham/v3/query/my_order_group,REJECT
+URL-REGEX,^https://api\.pinduoduo\.com/api/caterham/v3/query/likes,REJECT
+URL-REGEX,^https://api\.pinduoduo\.com/api/phantom/gbdbpdv/extra,REJECT
+URL-REGEX,^https://api\.pinduoduo\.com/api/manufacturer/cross/shortcut/list,REJECT
+URL-REGEX,^https://api\.pinduoduo\.com/api/dunkirk/liveactivity/push/create/url/report,REJECT
+URL-REGEX,^https://api\.pinduoduo\.com/api/growth/nagato/app/index/gather,REJECT
+URL-REGEX,^https://api\.pinduoduo\.com/api/engels/wait/receive/review,REJECT
+URL-REGEX,^https://api\.pinduoduo\.com/api/buffon/nasus/recommend,REJECT
+URL-REGEX,^https://api\.pinduoduo\.com/api/caterham/v2/query/goods_detail_with_tags,REJECT
 URL-REGEX,^http:\/\/((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/d(\d)?,REJECT
 URL-REGEX,^http:\/\/\[[0-9a-fA-F:]+\]\/d(\d)?\?,REJECT
 DOMAIN,titan.pinduoduo.com,REJECT
