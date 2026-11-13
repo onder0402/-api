@@ -14,6 +14,10 @@
 [Rule]
 AND,((URL-REGEX,"^http:\/\/((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/d(\d)?"),(USER-AGENT,"*com.xunmeng.pinduoduo*")),REJECT
 AND,((URL-REGEX,"^http:\/\/\[[0-9a-fA-F:]+\]\/d(\d)?\?"),(USER-AGENT,"*com.xunmeng.pinduoduo*")),REJECT
+# 强制 api.pinduoduo.com 走 TCP：Surge 认不全 QUIC 草案版本，认不出来的 QUIC 直接
+# 绕过 MITM，改写、本地映射、脚本同时看不到流量。UDP 直接丢弃，App 自动回落 TCP。
+# 这条之前在 6295887e 里有过，后来换成可莉转换版文件时丢了，现在加回来。
+AND,((DOMAIN,api.pinduoduo.com),(PROTOCOL,UDP)),REJECT-NO-DROP
 AND,((DOMAIN,api.pinduoduo.com),(PROTOCOL,QUIC)),REJECT
 DOMAIN,titan.pinduoduo.com,REJECT
 DOMAIN,titan-mt.pinduoduo.com,REJECT
@@ -92,6 +96,16 @@ http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/aristotle\/order_list_
 (?i)^https:\/\/api\.pinduoduo\.com\/api\/buffon\/nasus\/recommend\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
 
 (?i)^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v2\/query\/goods_detail_with_tags\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+
+[URL Rewrite]
+# 个人中心供货请求直接掐断（QX 式 reject：请求失败，那块不显示）。
+# Map Local 返回 {} 在 Loon 里等价于 reject_dict，但在 Surge 里如果请求根本没进
+# HTTP 引擎就永远触发不了；reject 在规则层、同样依赖 MITM 解密后的 URL。
+# ktt_gateway/personal_home_page 是个人主页信息流，可莉原版和我们模块都没覆盖它。
+^https:\/\/api\.pinduoduo\.com\/api\/ktt_gateway\/activity\/feeds\/personal_home_page\/ - reject
+^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v3\/query\/personal - reject
+^https:\/\/api\.pinduoduo\.com\/api\/(aquarius|flow)\/hungary\/(window\/)?global\/personal_center - reject
+^https:\/\/api\.pinduoduo\.com\/api\/buffon\/nasus\/recommend - reject
 
 [Script]
 移除扫码取件页面商品推荐及弹窗 = type=http-response, pattern=(?i)^https:\/\/m\.pinduoduo\.net\/mdkd\/package\?(?:[^#?&]+&)*from_app_scan, script-path=https://raw.githubusercontent.com/KIDA-MNESIA/gadgets/main/module/kelee/script-kelee_PinDuoDuo_remove_ads-63af2e44da24da11.js, requires-body=true
