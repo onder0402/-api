@@ -12,6 +12,10 @@
 # 那些没经过验证的改动才是把模块搞坏的可能原因。
 
 [Rule]
+# 强制 api.pinduoduo.com 走 TCP：Surge 6 认不全 QUIC 的草案版本，认不出来的 QUIC
+# 直接绕过 MITM，改写和本地映射都看不到流量。UDP 443 直接丢弃，App 会自动回落 TCP，
+# 回落后的流量才能被 MITM 解密、改写。REJECT-NO-DROP 是静默丢弃，不会让 App 报错。
+AND,((DOMAIN,api.pinduoduo.com),(PROTOCOL,UDP)),REJECT-NO-DROP
 AND,((URL-REGEX,"^http:\/\/((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/d(\d)?",extended-matching),(USER-AGENT,"*com.xunmeng.pinduoduo*")),REJECT
 AND,((URL-REGEX,"^http:\/\/\[[0-9a-fA-F:]+\]\/d(\d)?\?",extended-matching),(USER-AGENT,"*com.xunmeng.pinduoduo*")),REJECT
 AND,((DOMAIN,api.pinduoduo.com,extended-matching),(PROTOCOL,QUIC)),REJECT
