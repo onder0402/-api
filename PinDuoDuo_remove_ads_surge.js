@@ -15,7 +15,7 @@ let body = $response.body || "";
 // Surge 的 Rule REJECT 是直接断连，App 会用缓存，底栏就不变，所以这里用 JS 返回 {} 来模拟。
 const REJECT_PATHS = [
   "/api/aristotle/unrated_order_for_unreceived_tab", "/api/aristotle/query_order_list_tabs_element",
-  "/api/aquarius/hungary/global/homepage", "/api/caterham/v3/query/order_express_group",
+  "/api/aquarius/hungary/global/homepage", "/api/aquarius/hungary/global/personal_center", "/api/caterham/v3/query/order_express_group",
   "/search_hotquery", "/api/zaire_biz/chat/resource/get_list_data", "/api/caterham/v3/query/new_chat_group",
   "/api/alexa/goods/back_up", "/api/caterham/v3/query/personal", "/api/brand-olay/goods_detail/bybt_guide",
   "/api/engels/reviews/require/append", "/api/caterham/v3/query/my_order_group", "/api/caterham/v3/query/likes",
