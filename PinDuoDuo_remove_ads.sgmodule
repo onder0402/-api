@@ -5,15 +5,18 @@
 #!icon=https://raw.githubusercontent.com/luestr/IconResource/main/App_icon/120px/PinDuoDuo.png
 #!category=去广告
 
-# 这份就是可莉授权转换的 Surge 版（KIDA-MNESIA/gadgets，ScriptHub 把可莉 Loon 插件
-# 2026-10-02 版转成 Surge 模块），一字未改地照搬。用户实测这份底栏能生效。
-# 只多加了一条：Map Local 里 aquarius/hungary/global/personal_center 也返回 {}，
-# 个人中心那排商品最可能就是它顶层的 list 在供货，Loon 原版没覆盖它。
+# 这份是可莉授权转换的 Surge 版（KIDA-MNESIA/gadgets，ScriptHub 把可莉 Loon 插件
+# 2026-10-02 版转成 Surge 模块），底栏已验证生效。
+# 个人中心商品区改用 ZenmoFeiShi 的做法（https://github.com/ZenmoFeiShi/Qx，
+# 2026-11-04，App 8.29.0）：不再整条返回 {}，而是用脚本把 hungary/global/*
+# 响应的顶层 list 清空成 []，并覆盖可莉原版没有的 flow 命名空间和 window/ 子路径。
+# 对应地，Map Local 里 aquarius personal_center 返回 {} 那条已删掉，改走脚本。
 [Rule]
 AND,((URL-REGEX,"^http:\/\/((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/d(\d)?"),(USER-AGENT,"*com.xunmeng.pinduoduo*")),REJECT
 AND,((URL-REGEX,"^http:\/\/\[[0-9a-fA-F:]+\]\/d(\d)?\?"),(USER-AGENT,"*com.xunmeng.pinduoduo*")),REJECT
 AND,((DOMAIN,api.pinduoduo.com),(PROTOCOL,QUIC)),REJECT
 DOMAIN,titan.pinduoduo.com,REJECT
+DOMAIN,titan-mt.pinduoduo.com,REJECT
 DOMAIN,xg.pinduoduo.com,REJECT
 DOMAIN,cdl-1.pddpic.com,REJECT
 DOMAIN,titan.pinduoduo.com,REJECT
@@ -29,11 +32,11 @@ DOMAIN,meta.pinduoduo.com,REJECT
 DOMAIN,apm-a.pinduoduo.com,REJECT
 
 [Body Rewrite]
-http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub\? 'delpaths([["result","dy_module","irregular_banner_dy"]])'
-http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub\? 'delpaths([["result","icon_set"]])'
-http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub\? 'delpaths([["result","search_bar_hot_query"]])'
-http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub\? 'delpaths([["result","dy_module","irregular_banner_dy"]])'
-http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub\? '.result.bottom_tabs? |= map(select(.link | IN("index.html", "chat_list.html", "personal.html"))) | .result.buffer_bottom_tabs? |= map(select(.link | IN("index.html", "chat_list.html", "personal.html"))) | .result.all_top_opts |= map(del(.selected_image, .image, .height, .width))'
+http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub(\/refresh)?\? 'delpaths([["result","dy_module","irregular_banner_dy"]])'
+http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub(\/refresh)?\? 'delpaths([["result","icon_set"]])'
+http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub(\/refresh)?\? 'delpaths([["result","search_bar_hot_query"]])'
+http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub(\/refresh)?\? 'delpaths([["result","dy_module","irregular_banner_dy"]])'
+http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub(\/refresh)?\? '.result.bottom_tabs? |= map(select(.link | IN("index.html", "chat_list.html", "personal.html"))) | .result.buffer_bottom_tabs? |= map(select(.link | IN("index.html", "chat_list.html", "personal.html"))) | .result.all_top_opts |= map(del(.selected_image, .image, .height, .width))'
 http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/search\? 'delpaths([["expansion"]])'
 http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/philo\/personal\/hub\? 'delpaths([["monthly_card_entrance"]])'
 http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/philo\/personal\/hub\? 'delpaths([["personal_center_style_v2_vo"]])'
@@ -55,7 +58,6 @@ http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/aristotle\/order_list_
 
 (?i)^https:\/\/api\.pinduoduo\.com\/api\/aquarius\/hungary\/global\/homepage\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
 
-(?i)^https:\/\/api\.pinduoduo\.com\/api\/aquarius\/hungary\/global\/personal_center\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
 
 (?i)^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v3\/query\/order_express_group\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
 
@@ -93,6 +95,10 @@ http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/aristotle\/order_list_
 
 [Script]
 移除扫码取件页面商品推荐及弹窗 = type=http-response, pattern=(?i)^https:\/\/m\.pinduoduo\.net\/mdkd\/package\?(?:[^#?&]+&)*from_app_scan, script-path=https://raw.githubusercontent.com/KIDA-MNESIA/gadgets/main/module/kelee/script-kelee_PinDuoDuo_remove_ads-63af2e44da24da11.js, requires-body=true
+
+# 个人中心商品区：ZenmoFeiShi 的做法，把 hungary/global/personal_center 响应顶层 list 清空成 []，
+# 覆盖 aquarius/flow × 有无 window/ 四种形态。脚本见 PinDuoDuo_personal_center.js。
+PinDuoDuo_personal_center = type=http-response, pattern=^https://api\.pinduoduo\.com/api/(aquarius|flow)/hungary/(window/)?global/personal_center, script-path=https://raw.githubusercontent.com/onder0402/-api/main/PinDuoDuo_personal_center.js, requires-body=true, max-size=10485760, timeout=30, script-update-interval=0
 
 [MITM]
 hostname = %APPEND% api.pinduoduo.com, m.pinduoduo.net
