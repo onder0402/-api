@@ -5,22 +5,18 @@
 #!icon=https://raw.githubusercontent.com/luestr/IconResource/main/App_icon/120px/PinDuoDuo.png
 #!category=去广告
 
-# 这份是可莉授权转换的 Surge 版（KIDA-MNESIA/gadgets，ScriptHub 把可莉 Loon 插件
-# 2026-10-02 版转成 Surge 模块），底栏已验证生效。
-# 个人中心商品区改用 ZenmoFeiShi 的做法（https://github.com/ZenmoFeiShi/Qx，
-# 2026-11-04，App 8.29.0）：不再整条返回 {}，而是用脚本把 hungary/global/*
-# 响应的顶层 list 清空成 []，并覆盖可莉原版没有的 flow 命名空间和 window/ 子路径。
-# 对应地，Map Local 里 aquarius personal_center 返回 {} 那条已删掉，改走脚本。
+# 这份就是可莉授权转换的 Surge 版（KIDA-MNESIA/gadgets，ScriptHub 把可莉 Loon 插件
+# 2026-10-02 版转成 Surge 模块），一字未改地照搬，用户实测这份底栏能生效。
+# 只多加了两条：让 api.pinduoduo.com 和 m.pinduoduo.net 走代理组 Proxy。
+# 直连时 App 走 QUIC 绕过解密（用户实测：Loon 走规则行、全部直连不行），
+# 走代理时代理只支持 TCP，App 回落 TCP 后才能被解密、改写。
+# 之前我自己加的东西（UDP 封堵、URL Rewrite 掐断、个人中心脚本、titan-mt、refresh）
+# 全部去掉，免得再把底栏搞坏。
 [Rule]
 AND,((URL-REGEX,"^http:\/\/((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/d(\d)?"),(USER-AGENT,"*com.xunmeng.pinduoduo*")),REJECT
 AND,((URL-REGEX,"^http:\/\/\[[0-9a-fA-F:]+\]\/d(\d)?\?"),(USER-AGENT,"*com.xunmeng.pinduoduo*")),REJECT
-# 强制 api.pinduoduo.com 走 TCP：Surge 认不全 QUIC 草案版本，认不出来的 QUIC 直接
-# 绕过 MITM，改写、本地映射、脚本同时看不到流量。UDP 直接丢弃，App 自动回落 TCP。
-# 这条之前在 6295887e 里有过，后来换成可莉转换版文件时丢了，现在加回来。
-AND,((DOMAIN,api.pinduoduo.com),(PROTOCOL,UDP)),REJECT-NO-DROP
 AND,((DOMAIN,api.pinduoduo.com),(PROTOCOL,QUIC)),REJECT
 DOMAIN,titan.pinduoduo.com,REJECT
-DOMAIN,titan-mt.pinduoduo.com,REJECT
 DOMAIN,xg.pinduoduo.com,REJECT
 DOMAIN,cdl-1.pddpic.com,REJECT
 DOMAIN,titan.pinduoduo.com,REJECT
@@ -35,17 +31,15 @@ DOMAIN,ta-a.pinduoduo.com,REJECT
 DOMAIN,meta.pinduoduo.com,REJECT
 DOMAIN,apm-a.pinduoduo.com,REJECT
 
-# 让拼多多 API 流量走代理组 Proxy：代理只支持 TCP，App 回落 TCP 后才能被 MITM 解密、改写。
-# 直连时 App 走 QUIC 绕过解密（用户实测：Loon 走规则行、全部直连不行）。
 DOMAIN,api.pinduoduo.com,Proxy
 DOMAIN,m.pinduoduo.net,Proxy
 
 [Body Rewrite]
-http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub(\/refresh)?\? 'delpaths([["result","dy_module","irregular_banner_dy"]])'
-http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub(\/refresh)?\? 'delpaths([["result","icon_set"]])'
-http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub(\/refresh)?\? 'delpaths([["result","search_bar_hot_query"]])'
-http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub(\/refresh)?\? 'delpaths([["result","dy_module","irregular_banner_dy"]])'
-http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub(\/refresh)?\? '.result.bottom_tabs? |= map(select(.link | IN("index.html", "chat_list.html", "personal.html"))) | .result.buffer_bottom_tabs? |= map(select(.link | IN("index.html", "chat_list.html", "personal.html"))) | .result.all_top_opts |= map(del(.selected_image, .image, .height, .width))'
+http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub\? 'delpaths([["result","dy_module","irregular_banner_dy"]])'
+http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub\? 'delpaths([["result","icon_set"]])'
+http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub\? 'delpaths([["result","search_bar_hot_query"]])'
+http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub\? 'delpaths([["result","dy_module","irregular_banner_dy"]])'
+http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub\? '.result.bottom_tabs? |= map(select(.link | IN("index.html", "chat_list.html", "personal.html"))) | .result.buffer_bottom_tabs? |= map(select(.link | IN("index.html", "chat_list.html", "personal.html"))) | .result.all_top_opts |= map(del(.selected_image, .image, .height, .width))'
 http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/search\? 'delpaths([["expansion"]])'
 http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/philo\/personal\/hub\? 'delpaths([["monthly_card_entrance"]])'
 http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/philo\/personal\/hub\? 'delpaths([["personal_center_style_v2_vo"]])'
@@ -66,7 +60,6 @@ http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/aristotle\/order_list_
 (?i)^https:\/\/api\.pinduoduo\.com\/api\/aristotle\/query_order_list_tabs_element\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
 
 (?i)^https:\/\/api\.pinduoduo\.com\/api\/aquarius\/hungary\/global\/homepage\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
-
 
 (?i)^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v3\/query\/order_express_group\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
 
@@ -102,22 +95,8 @@ http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/aristotle\/order_list_
 
 (?i)^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v2\/query\/goods_detail_with_tags\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
 
-[URL Rewrite]
-# 个人中心供货请求直接掐断（QX 式 reject：请求失败，那块不显示）。
-# Map Local 返回 {} 在 Loon 里等价于 reject_dict，但在 Surge 里如果请求根本没进
-# HTTP 引擎就永远触发不了；reject 在规则层、同样依赖 MITM 解密后的 URL。
-# ktt_gateway/personal_home_page 是个人主页信息流，可莉原版和我们模块都没覆盖它。
-^https:\/\/api\.pinduoduo\.com\/api\/ktt_gateway\/activity\/feeds\/personal_home_page\/ - reject
-^https:\/\/api\.pinduoduo\.com\/api\/caterham\/v3\/query\/personal - reject
-^https:\/\/api\.pinduoduo\.com\/api\/(aquarius|flow)\/hungary\/(window\/)?global\/personal_center - reject
-^https:\/\/api\.pinduoduo\.com\/api\/buffon\/nasus\/recommend - reject
-
 [Script]
 移除扫码取件页面商品推荐及弹窗 = type=http-response, pattern=(?i)^https:\/\/m\.pinduoduo\.net\/mdkd\/package\?(?:[^#?&]+&)*from_app_scan, script-path=https://raw.githubusercontent.com/KIDA-MNESIA/gadgets/main/module/kelee/script-kelee_PinDuoDuo_remove_ads-63af2e44da24da11.js, requires-body=true
-
-# 个人中心商品区：ZenmoFeiShi 的做法，把 hungary/global/personal_center 响应顶层 list 清空成 []，
-# 覆盖 aquarius/flow × 有无 window/ 四种形态。脚本见 PinDuoDuo_personal_center.js。
-PinDuoDuo_personal_center = type=http-response, pattern=^https://api\.pinduoduo\.com/api/(aquarius|flow)/hungary/(window/)?global/personal_center, script-path=https://raw.githubusercontent.com/onder0402/-api/main/PinDuoDuo_personal_center.js, requires-body=true, max-size=10485760, timeout=30, script-update-interval=0
 
 [MITM]
 hostname = %APPEND% api.pinduoduo.com, m.pinduoduo.net
