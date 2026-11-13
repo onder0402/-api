@@ -35,7 +35,7 @@ try {
   // 原 Loon:
   // response.json.delete(["result.dy_module.irregular_banner_dy","result.icon_set","result.search_bar_hot_query"])
   // response.json.jq(".result.bottom_tabs? |= map(select(.link | IN(\"index.html\",\"chat_list.html\",\"personal.html\"))) | .result.buffer_bottom_tabs? |= map(select(...)) | .result.all_top_opts |= map(del(.selected_image,.image,.height,.width))")
-  if (/\/api\/alexa\/homepage\/hub\?/.test(url)) {
+  if (/\/api\/alexa\/homepage\/hub/.test(url)) {
     delPaths(obj, [
       "result.dy_module.irregular_banner_dy",
       "result.icon_set",
@@ -58,14 +58,14 @@ try {
   }
 
   // 搜索: 删 expansion
-  else if (/\/search\?/.test(url)) {
+  else if (/\/search/.test(url)) {
     delPaths(obj, ["expansion", "result.expansion"]);
     changed = true;
   }
 
   // 个人中心 hub: 精简个人主页
   // 原 Loon: delete(["monthly_card_entrance","personal_center_style_v2_vo","icon_set.icons","icon_set.top_personal_icons","personal_banner"])
-  else if (/\/api\/philo\/personal\/hub\?/.test(url)) {
+  else if (/\/api\/philo\/personal\/hub/.test(url)) {
     delPaths(obj, [
       "monthly_card_entrance",
       "personal_center_style_v2_vo",
@@ -81,7 +81,7 @@ try {
 
   // oak render: 删底部/直播浮层
   // 原 Loon: delete(["bottom_section_list","ui.bottom_section","ui.live_section.float_info"])
-  else if (/\/api\/oak\/integration\/render\?/.test(url)) {
+  else if (/\/api\/oak\/integration\/render/.test(url)) {
     delPaths(obj, [
       "bottom_section_list",
       "ui.bottom_section",
@@ -92,7 +92,7 @@ try {
   }
 
   // 订单详情: 删商品推荐列表
-  else if (/\/api\/caterham\/v3\/query\/order_detail_group\?/.test(url)) {
+  else if (/\/api\/caterham\/v3\/query\/order_detail_group/.test(url)) {
     delPaths(obj, ["data.goods_list"]);
     changed = true;
   }
@@ -105,7 +105,7 @@ try {
 
   // 订单列表 v4: 删订单按钮里的成长提示
   // 原 Loon: jq(".orders |= map(.order_buttons |= map(del(.order_growth_tip)))")
-  else if (/\/api\/aristotle\/order_list_v4\?/.test(url)) {
+  else if (/\/api\/aristotle\/order_list_v4/.test(url)) {
     if (Array.isArray(obj.orders)) {
       obj.orders.forEach((o) => {
         if (o && Array.isArray(o.order_buttons)) {

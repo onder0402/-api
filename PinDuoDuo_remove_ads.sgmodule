@@ -6,7 +6,14 @@
 #!category=去广告
 
 [Rule]
-# 原版 [Rule] 里 AND((URL-REGEX),(USER-AGENT)) 和 AND((DOMAIN),(PROTOCOL,QUIC)) 是 Loon 的复合规则，Surge 不支持，拆成下面两条直连 IP 的 URL-REGEX；QUIC 那条在 Surge 里靠下面的域名 REJECT + 关闭 QUIC 兜底，见 README。
+# 关键：先拦 QUIC。原版 Loon 有 AND((DOMAIN,api.pinduoduo.com),(PROTOCOL,QUIC)) REJECT，
+# 拼多多走 QUIC/HTTP3 时 MITM 解不开，脚本永远命中不了，底栏就改不动。
+# Surge 里用 AND + PROTOCOL,QUIC + REJECT-NO-DROP（不能用 REJECT-DROP，否则 App 不会回落 TCP），
+# 逼它回落到 TCP/TLS 再走 MITM。必须放最前面。
+# 注意：主配置里 MITM 的“自动拦截 QUIC”也要开着，这条是双保险。
+AND,((DOMAIN,api.pinduoduo.com),(PROTOCOL,QUIC)),REJECT-NO-DROP
+AND,((DOMAIN,api.yangkeduo.com),(PROTOCOL,QUIC)),REJECT-NO-DROP
+# 原版 [Rule] 里 AND((URL-REGEX),(USER-AGENT)) 是 Loon 的复合规则，Surge 不支持 USER-AGENT 条件，拆成下面两条直连 IP 的 URL-REGEX。
 URL-REGEX,^http:\/\/((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/d(\d)?,REJECT
 URL-REGEX,^http:\/\/\[[0-9a-fA-F:]+\]\/d(\d)?\?,REJECT
 DOMAIN,titan.pinduoduo.com,REJECT
@@ -53,13 +60,13 @@ DOMAIN,apm-a.pinduoduo.com,REJECT
 # 一是 Surge 的脚本列表里每条都能单独看到、单独开关，出问题好定位；
 # 二是避免合并正则在个别 Surge 版本里解析不到。
 # script-path 用本仓库的绝对 raw 地址，Surge 从 URL 安装模块后直接能拉到 JS。
-PinDuoDuo_homepage = type=http-response, pattern=^https://api\.pinduoduo\.com/api/alexa/homepage/hub\?, script-path=https://raw.githubusercontent.com/onder0402/-api/main/PinDuoDuo_remove_ads_surge.js, requires-body=true, timeout=10
-PinDuoDuo_search = type=http-response, pattern=^https://api\.pinduoduo\.com/search\?, script-path=https://raw.githubusercontent.com/onder0402/-api/main/PinDuoDuo_remove_ads_surge.js, requires-body=true, timeout=10
-PinDuoDuo_personal = type=http-response, pattern=^https://api\.pinduoduo\.com/api/philo/personal/hub\?, script-path=https://raw.githubusercontent.com/onder0402/-api/main/PinDuoDuo_remove_ads_surge.js, requires-body=true, timeout=10
-PinDuoDuo_oak = type=http-response, pattern=^https://api\.pinduoduo\.com/api/oak/integration/render\?, script-path=https://raw.githubusercontent.com/onder0402/-api/main/PinDuoDuo_remove_ads_surge.js, requires-body=true, timeout=10
-PinDuoDuo_order_detail = type=http-response, pattern=^https://api\.pinduoduo\.com/api/caterham/v3/query/order_detail_group\?, script-path=https://raw.githubusercontent.com/onder0402/-api/main/PinDuoDuo_remove_ads_surge.js, requires-body=true, timeout=10
+PinDuoDuo_homepage = type=http-response, pattern=^https://api\.pinduoduo\.com/api/alexa/homepage/hub, script-path=https://raw.githubusercontent.com/onder0402/-api/main/PinDuoDuo_remove_ads_surge.js, requires-body=true, timeout=10
+PinDuoDuo_search = type=http-response, pattern=^https://api\.pinduoduo\.com/search, script-path=https://raw.githubusercontent.com/onder0402/-api/main/PinDuoDuo_remove_ads_surge.js, requires-body=true, timeout=10
+PinDuoDuo_personal = type=http-response, pattern=^https://api\.pinduoduo\.com/api/philo/personal/hub, script-path=https://raw.githubusercontent.com/onder0402/-api/main/PinDuoDuo_remove_ads_surge.js, requires-body=true, timeout=10
+PinDuoDuo_oak = type=http-response, pattern=^https://api\.pinduoduo\.com/api/oak/integration/render, script-path=https://raw.githubusercontent.com/onder0402/-api/main/PinDuoDuo_remove_ads_surge.js, requires-body=true, timeout=10
+PinDuoDuo_order_detail = type=http-response, pattern=^https://api\.pinduoduo\.com/api/caterham/v3/query/order_detail_group, script-path=https://raw.githubusercontent.com/onder0402/-api/main/PinDuoDuo_remove_ads_surge.js, requires-body=true, timeout=10
 PinDuoDuo_order = type=http-response, pattern=^https://api\.pinduoduo\.com/order/, script-path=https://raw.githubusercontent.com/onder0402/-api/main/PinDuoDuo_remove_ads_surge.js, requires-body=true, timeout=10
-PinDuoDuo_order_list = type=http-response, pattern=^https://api\.pinduoduo\.com/api/aristotle/order_list_v4\?, script-path=https://raw.githubusercontent.com/onder0402/-api/main/PinDuoDuo_remove_ads_surge.js, requires-body=true, timeout=10
+PinDuoDuo_order_list = type=http-response, pattern=^https://api\.pinduoduo\.com/api/aristotle/order_list_v4, script-path=https://raw.githubusercontent.com/onder0402/-api/main/PinDuoDuo_remove_ads_surge.js, requires-body=true, timeout=10
 # 扫码取件页：原版自带 JS，直接用原作者的远程地址，不用改写
 PinDuoDuo_scan = type=http-response, pattern=^https://m\.pinduoduo\.net/mdkd/package\?from_app_scan, script-path=https://raw.githubusercontent.com/Moli-X/Tool/X/Loon/Plugin/Kelee/Script/PinDuoDuo_remove_ads.js, requires-body=true, timeout=10
 
