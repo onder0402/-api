@@ -30,8 +30,30 @@ if (isRejectDict) {
 }
 // 结构探针：personal / oak / render 这几条是个人中心的数据源，通知里报它们返回的顶层字段，
 // 就能知道商品区到底叫什么字段（之前猜的 bottom_section_list 一个都没命中）。
+// 深探针：personal/hub 里重点找 recommend/feed/goods 相关的字段和 module_list_map 的键，
+// 上次通知里看到 show_recommend_feed_ban... 被截断了，这次把带 recommend/feed 的键和值都报出来。
 try {
-  if (!isRejectDict && /personal|oak|render/.test(url) && body) {
+  if (!isRejectDict && /personal\/hub/.test(url) && body) {
+    const _o = JSON.parse(body);
+    const _found = [];
+    const _walk = (o, depth, path) => {
+      if (!o || typeof o !== "object" || depth > 3) return;
+      if (Array.isArray(o)) { o.slice(0, 2).forEach((x) => _walk(x, depth + 1, path)); return; }
+      for (const k in o) {
+        const lk = k.toLowerCase();
+        if (lk.includes("recommend") || lk.includes("feed") || lk.includes("goods_list")) {
+          const v = o[k];
+          _found.push(path + k + "=" + (typeof v === "object" ? "obj" : String(v)).slice(0, 30));
+        }
+        if (k === "module_list_map" && o[k] && typeof o[k] === "object") {
+          _found.push("module_list_map keys=" + Object.keys(o[k]).join(",").slice(0, 100));
+        }
+        if (o[k] && typeof o[k] === "object") _walk(o[k], depth + 1, path + k + ".");
+      }
+    };
+    _walk(_o, 0, "");
+    $notification.post("PDD深探", "personal/hub", _found.join(" | ").slice(0, 300) || "no recommend/feed keys");
+  } else if (!isRejectDict && /personal|oak|render/.test(url) && body) {
     const _o = JSON.parse(body);
     const _keys = Object.keys(_o).join(",");
     const _rk = _o.result && typeof _o.result === "object" ? Object.keys(_o.result).join(",") : "";
