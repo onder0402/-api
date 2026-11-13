@@ -26,9 +26,18 @@ const REJECT_PATHS = [
 const isRejectDict = REJECT_PATHS.some((p) => url.includes(p));
 if (isRejectDict) {
   try { console.log("[PDD] reject_dict url=" + url); } catch (e) {}
-  try { $notification.post("PDD测试", "reject_dict 返回空字典", url.slice(0, 120)); } catch (e) {}
   body = "{}";
 }
+// 结构探针：personal / oak / render 这几条是个人中心的数据源，通知里报它们返回的顶层字段，
+// 就能知道商品区到底叫什么字段（之前猜的 bottom_section_list 一个都没命中）。
+try {
+  if (!isRejectDict && /personal|oak|render/.test(url) && body) {
+    const _o = JSON.parse(body);
+    const _keys = Object.keys(_o).join(",");
+    const _rk = _o.result && typeof _o.result === "object" ? Object.keys(_o.result).join(",") : "";
+    $notification.post("PDD结构", url.split("?")[0].slice(-60), "顶层:" + _keys.slice(0, 120) + " | result:" + _rk.slice(0, 120));
+  }
+} catch (e) {}
 try { console.log("[PDD] hit url=" + url + " body_len=" + body.length); } catch (e) {}
 // 通用兜底：不管接口叫什么，只要返回里有 bottom_tabs 就过滤。
 // 2026-11-14 用户实测：最近请求里根本没有 homepage/hub 这条，说明新版 App
