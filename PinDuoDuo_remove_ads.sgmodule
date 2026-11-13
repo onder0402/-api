@@ -35,6 +35,11 @@ DOMAIN,ta-a.pinduoduo.com,REJECT
 DOMAIN,meta.pinduoduo.com,REJECT
 DOMAIN,apm-a.pinduoduo.com,REJECT
 
+# 让拼多多 API 流量走代理组 Proxy：代理只支持 TCP，App 回落 TCP 后才能被 MITM 解密、改写。
+# 直连时 App 走 QUIC 绕过解密（用户实测：Loon 走规则行、全部直连不行）。
+DOMAIN,api.pinduoduo.com,Proxy
+DOMAIN,m.pinduoduo.net,Proxy
+
 [Body Rewrite]
 http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub(\/refresh)?\? 'delpaths([["result","dy_module","irregular_banner_dy"]])'
 http-response-jq (?i)^https:\/\/api\.pinduoduo\.com\/api\/alexa\/homepage\/hub(\/refresh)?\? 'delpaths([["result","icon_set"]])'
