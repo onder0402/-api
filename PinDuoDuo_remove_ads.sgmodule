@@ -16,8 +16,8 @@
 # 4. [Body Rewrite] 底栏那条 jq 换成防缺失字段写法（本地 jq 1.7 实测 10 种边界情况全部 rc=0）：
 #    原写法里 bottom_tabs / buffer_bottom_tabs / all_top_opts 三者任一缺失或为 null，
 #    map() 就会报 Cannot iterate over null，整条规则被 Surge 跳过，底栏一个都不滤。
-# 5. [MITM] 显式加 h2 = true、auto-quic-block = true（模块可覆盖这两个 MITM 键），
-#    防止 App 侧开关被关掉导致 QUIC/HTTP2 流量绕过 MITM。
+# 5. [MITM] 显式加 h2 = true（模块可改的 MITM 键只有 hostname、client-source-address、
+#    skip-server-cert-verify、tcp-connection、h2；auto-quic-block 不能写在模块里，默认值已是 true）。
 # 6. homepage/hub 不再只靠 [Body Rewrite]（见下方 Tier 2 说明）。
 
 [Rule]
