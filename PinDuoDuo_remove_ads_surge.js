@@ -12,8 +12,38 @@
 const url = $request.url || "";
 let body = $response.body || "";
 try { console.log("[PDD] hit url=" + url + " body_len=" + body.length); } catch (e) {}
-// 临时诊断：脚本只要跑到就弹一条通知，跑不到就说明 pattern/MITM/脚本下载那层有问题，删掉这行后才算正式版
-try { if (/\/api\/alexa\/homepage\/hub/.test(url)) $notification.post("PDD测试", "首页脚本跑到了", "body_len=" + body.length); } catch (e) {}
+// 通用兜底：不管接口叫什么，只要返回里有 bottom_tabs 就过滤。
+// 2026-11-14 用户实测：最近请求里根本没有 homepage/hub 这条，说明新版 App
+// 已经不走 api/alexa/homepage/hub 了，之前只认这一个 URL 的写法永远跑不到。
+function scrubBottomTabs(obj, depth) {
+  if (!obj || typeof obj !== "object" || depth > 6) return 0;
+  let n = 0;
+  if (Array.isArray(obj)) {
+    obj.forEach((o) => { n += scrubBottomTabs(o, depth + 1); });
+    return n;
+  }
+  const keep = ["index.html", "chat_list.html", "personal.html"];
+  ["bottom_tabs", "buffer_bottom_tabs"].forEach((k) => {
+    if (Array.isArray(obj[k])) {
+      const before = obj[k].length;
+      obj[k] = obj[k].filter((t) => t && keep.includes(t.link));
+      if (obj[k].length !== before) n += before - obj[k].length;
+    }
+  });
+  for (const k in obj) {
+    if (obj[k] && typeof obj[k] === "object") n += scrubBottomTabs(obj[k], depth + 1);
+  }
+  return n;
+}
+try {
+  const _probe = JSON.parse(body);
+  const _removed = scrubBottomTabs(_probe, 0);
+  if (_removed > 0) {
+    try { $notification.post("PDD测试", "底栏过滤到了", url.slice(0, 120) + " 去了" + _removed + "个"); } catch (e) {}
+    try { console.log("[PDD] scrub bottom_tabs removed=" + _removed + " url=" + url); } catch (e) {}
+    body = JSON.stringify(_probe);
+  }
+} catch (e) {}
 
 function delPath(obj, path) {
   if (!obj || typeof obj !== "object") return;
